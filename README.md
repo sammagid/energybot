@@ -1,4 +1,16 @@
-# Weekly Energy Summary (Emporia Vue -> Slack)
+# Home Automations -> Slack
+
+This repo has two independent GitHub Actions automations:
+
+1. **Weekly Energy Summary** — Emporia Vue usage/cost report, every Sunday
+2. **Rain Reminder** — a heads-up if rain is forecasted tomorrow, every evening
+
+They share nothing except the `requirements.txt` file — each has its own
+script and its own workflow, and you can enable either one independently.
+
+---
+
+# 1. Weekly Energy Summary (Emporia Vue -> Slack)
 
 Every Sunday at 5:00pm Pacific time (or on demand), this GitHub Action:
 
@@ -96,9 +108,6 @@ update the `hour=17` check inside the same file to match your target hour
   catch-all segment. If your circuits don't fully add up to the whole-home
   total, that gap simply isn't shown in the chart (it's still reflected in
   the *Total usage*/*Total cost* lines at the top, which come from Main).
-- If the sum of your monitored circuits is less than the Main total, the
-  difference is shown as an **"Unmonitored/Other"** segment in the chart,
-  mirroring the "Balance" figure in the Emporia app.
 - The script doesn't group or truncate circuits — every monitored circuit
   gets its own segment in the chart and its own line in the Slack summary.
 
@@ -112,3 +121,73 @@ export SLACK_BOT_TOKEN=xoxb-...
 export SLACK_CHANNEL_ID=C0123456789
 python weekly_energy_summary.py
 ```
+
+---
+
+# 2. Rain Reminder (Open-Meteo -> Slack)
+
+Every evening at 6:00pm Pacific time (or on demand), this GitHub Action:
+
+1. Checks tomorrow's max daily chance of rain for Oakland, CA via
+   [Open-Meteo](https://open-meteo.com/) (free, no API key or account needed)
+2. Posts a reminder to Slack **only if** that chance is at least 30% — dry
+   forecasts produce no message at all
+
+The message looks like:
+
+> 🌧️ There is a 30% chance rain on the forecast tomorrow for Oakland, CA
+> tomorrow. You might want to bring in the couch cushions!
+
+## Files
+
+- `rain_reminder.py` — the script that does all of the above
+- `.github/workflows/rain-reminder.yml` — the schedule + CI job
+- Uses the same `requirements.txt` as the energy summary (only `requests`,
+  `python-dateutil`, and `slack_sdk` are actually needed for this one)
+
+## Configuration
+
+Location and threshold are hardcoded at the top of `rain_reminder.py`
+(no secrets needed for the weather data itself, since Open-Meteo is free
+and keyless):
+
+```python
+LOCATION_NAME = "Oakland, CA"
+LATITUDE = 37.8044
+LONGITUDE = -122.2711
+RAIN_THRESHOLD_PERCENT = 30
+```
+
+Change these directly in the file if you want a different city or a
+different sensitivity (e.g. lower the threshold to get warned about even a
+small chance of rain, or raise it to only hear about likely rain).
+
+## 1. Add a Slack channel + secret
+
+This can use the **same Slack bot** you already created for the energy
+summary — bots can post to multiple channels, they just need to be invited
+to each one individually.
+
+1. Create (or pick) the Slack channel you want rain reminders posted to
+2. Invite the bot: `/invite @your-bot-name` in that channel
+3. Get that channel's ID the same way as before (click the channel name →
+   scroll down in the details panel → copy the Channel ID)
+4. Add a new repo secret: `RAIN_SLACK_CHANNEL_ID` set to that channel ID
+
+You do **not** need a new `SLACK_BOT_TOKEN` — the existing one already has
+the `chat:write` scope this script needs, since it only sends plain text
+messages (no file/image upload here).
+
+## 2. Enable the workflow
+
+Same deal as the energy summary: push the files, then either wait for the
+6:00pm Pacific schedule or trigger it manually from the **Actions** tab →
+"Rain Reminder" → **Run workflow** to test it immediately. A manual run will
+actually post to Slack if tomorrow's forecast clears the 30% threshold, or
+just print "Below threshold - not sending a reminder." if it doesn't — that
+second case is normal and not a failure.
+
+The same two-`cron`-lines DST handling from the energy summary applies here
+too (see that section above for why) — just for 18:00 (6:00pm) instead of
+17:00.
+
