@@ -261,6 +261,7 @@ def post_to_slack(text, image_path):
 
 
 def main():
+    print("Starting weekly energy summary run...")
     vue = login()
     devices_by_gid = collect_devices(vue)
     if not devices_by_gid:
@@ -284,4 +285,3 @@ def main():
         total_kwh = sum(sum(vals) for vals in circuit_kwh.values())
         total_cost = sum(sum(vals) for vals in circuit_cost.values())
 
-    circuit_kwh_totals = {name: sum(vals) for name, vals in circuit_kwh.items()}

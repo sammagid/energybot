@@ -47,8 +47,9 @@ jobs:
       - name: Run weekly energy summary
         if: steps.check.outputs.should_run == 'true'
         env:
+          PYTHONUNBUFFERED: "1"
           EMPORIA_EMAIL: ${{ secrets.EMPORIA_EMAIL }}
           EMPORIA_PASSWORD: ${{ secrets.EMPORIA_PASSWORD }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
-        run: python weekly_energy_summary.py
+        run: python -u weekly_energy_summary.py
